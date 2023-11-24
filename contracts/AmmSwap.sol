@@ -17,6 +17,7 @@ contract AmmSwap {
     mapping(address => uint256) public lpTokens;
 
     event MintLpTokens(address indexed user, uint256 amount, uint256 timestamp);
+    event Swap(address indexed user, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, uint256 timestamp);
 
     constructor(address _token0, address _token1, address _lpToken, uint256 _amount0, uint256 _amount1, address _creator) {
         token0 = ERC20(_token0);
@@ -60,6 +61,22 @@ contract AmmSwap {
         lpToken.mint(msg.sender, lpTokens);
         _updateReserves(token0.balanceOf(address(this)), token1.balanceOf(address(this)));
         emit MintLpTokens(msg.sender, lpTokens, block.timestamp);
+    }
+
+    function swap(ERC20 _tokenIn, uint256 _amountIn) external {
+        require(_amountIn > 0, "amountIn cann't be 0");
+        require(_tokenIn == token0 || _tokenIn == token1, "tokenIn is not right");
+        bool isToken0 = _tokenIn == token0;
+        (ERC20 tokenIn, ERC20 tokenOut, uint256 reserveIn, uint256 reserveOut) = isToken0 ?
+            (token0, token1, reserve0, reserve1) :
+            (token1, token0, reserve1, reserve0);
+        tokenIn.transferFrom(msg.sender, address(this), _amountIn);
+        uint256 amountInWithFee = (_amountIn * 997) / 10000;
+        uint256 amountOut = (reserveOut * amountInWithFee) / (reserveIn + amountInWithFee);
+        require(amountOut <= ERC20(tokenOut).balanceOf(address(this)), "not enough tokenOut balance");
+        tokenOut.transfer(msg.sender, amountOut);
+        _updateReserves(token0.balanceOf(address(this)), token1.balanceOf(address(this)));
+        emit Swap(msg.sender, address(tokenIn), address(tokenOut), _amountIn, amountOut, block.timestamp);
     }
 
     function _updateReserves(uint256 _reserve0, uint256 _reserve1) internal {
