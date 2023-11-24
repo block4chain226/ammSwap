@@ -18,9 +18,9 @@ contract Factory is Ownable {
         _;
     }
 
-    function createPair(ERC20 _token0, ERC20 _token1, uint256 _amount0, uint256 _amount1) external {
+    function createPair(address _token0, address _token1, address _lpToken, uint256 _amount0, uint256 _amount1) external {
         require(address(_token0) != address(0) && address(_token1) != address(0), "address(0)");
-        AmmSwap ammSwap = new AmmSwap(_token0, _token1, _amount0, _amount1,  msg.sender);
+        AmmSwap ammSwap = new AmmSwap(_token0, _token1, _lpToken, _amount0, _amount1, msg.sender);
         contracts.push(address(ammSwap));
     }
 }
