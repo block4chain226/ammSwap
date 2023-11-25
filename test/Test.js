@@ -153,6 +153,39 @@ describe("Test", function () {
                 await expect(pairContract.connect(impersonateUser).swap(zlaContract.getAddress(), ethers.parseUnits("100000000", "wei"))).to.be.revertedWith("tokenIn is not right");
             })
         })
+        describe("RemoveLiquidity", () => {
+            it("user should remove all liquidity and get weth and usdc", async () => {
+                const {
+                    impersonateUser,
+                    wethContract,
+                    usdcContract,
+                    pairContract,
+                    lpToken
+                } = await loadFixture(deploy);
+                await usdcContract.connect(impersonateUser).approve(pairContract.getAddress(), ethers.parseUnits("1000000000000000", "wei"));
+                await wethContract.connect(impersonateUser).approve(pairContract.getAddress(), ethers.parseUnits("1000000000000000000000000000000", "wei"));
+                const reserves = await pairContract.getReservesBalances();
+                const amountOne = ethers.toBigInt(reserves[1]) / ethers.toBigInt(reserves[0]) * ethers.toBigInt("300000000");
+                await pairContract.connect(impersonateUser).addLiquidity(usdcContract.getAddress(), wethContract.getAddress(), ethers.parseUnits("300000000", "wei"),
+                    ethers.parseUnits(amountOne.toString(), "wei"));
+                const totalLp = await lpToken.totalSupply();
+                const wethAfterAddLiquidity = await wethContract.balanceOf(impersonateUser.address);
+                const lpAfterA = await lpToken.balanceOf(impersonateUser.address);
+                const usdcAfterAdd = await usdcContract.balanceOf(impersonateUser.address);
+                const reservesAfterAdd = await pairContract.getReservesBalances();
+                await pairContract.connect(impersonateUser).removeLiquidity(lpAfterA);
+                const lpAfterR = await lpToken.balanceOf(impersonateUser.address);
+                const wethAfterRemove = await wethContract.balanceOf(impersonateUser.address);
+                const usdcAfterRemove = await usdcContract.balanceOf(impersonateUser.address);
+                const reservesAfterRemove = await pairContract.getReservesBalances();
+                const totalLpR = await lpToken.totalSupply();
+                expect(wethAfterRemove > wethAfterAddLiquidity).to.eq(true);
+                expect(usdcAfterRemove > usdcAfterAdd).to.eq(true);
+                expect(lpAfterA > lpAfterR).to.eq(true);
+                expect(reservesAfterAdd > reservesAfterRemove).to.eq(true);
+                expect(totalLp > totalLpR && totalLpR == 0).to.eq(true);
+            })
+        })
     })
 
 });

@@ -18,18 +18,13 @@ contract AmmSwap {
 
     event MintLpTokens(address indexed user, uint256 amount, uint256 timestamp);
     event Swap(address indexed user, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, uint256 timestamp);
-
+    event RemoveLiquidity(address indexed user, uint256 lpTokensAmount, uint256 timestamp);
     constructor(address _token0, address _token1, address _lpToken, uint256 _amount0, uint256 _amount1, address _creator) {
         token0 = ERC20(_token0);
         token1 = ERC20(_token1);
-        //1/337.95
-        console.log(_amount0);
-        console.log(_amount1);
         lpToken = LpToken(_lpToken);
         uint256 initialLpTokens = Math._sqrt(_amount0 * _amount1);
-
         ERC20(_token0).transferFrom(_creator, address(this), _amount0);
-        console.log("it", initialLpTokens);
         token1.transferFrom(_creator, address(this), _amount1);
         lpToken.mint(_creator, initialLpTokens);
         _updateReserves(token0.balanceOf(address(this)), token1.balanceOf(address(this)));
@@ -63,6 +58,22 @@ contract AmmSwap {
         emit MintLpTokens(msg.sender, lpTokens, block.timestamp);
     }
 
+    function removeLiquidity(uint256 _lpTokens) external {
+        require(_lpTokens > 0, "zero lp tokens");
+        require(lpToken.balanceOf(msg.sender) >= _lpTokens, "user has not enough lp tokens");
+        uint256 token0Amount = (_lpTokens * reserve0) / lpToken.totalSupply();
+        uint256 token1Amount = (_lpTokens * reserve1) / lpToken.totalSupply();
+        require(token0Amount > 0 && token1Amount > 0, "token amounts 0");
+        uint256 bal0 = token0.balanceOf(address(this));
+        uint256 bal1 = token1.balanceOf(address(this));
+        require(bal0 >= token0Amount && bal1 >= token1Amount, "not enough reserve balances");
+        _updateReserves(bal0 - token0Amount, bal1 - token1Amount);
+        lpToken.burn(msg.sender, _lpTokens);
+        token0.transfer(msg.sender, token0Amount);
+        token1.transfer(msg.sender, token1Amount);
+        emit RemoveLiquidity(msg.sender, _lpTokens, block.timestamp);
+    }
+
     function swap(ERC20 _tokenIn, uint256 _amountIn) external {
         require(_amountIn > 0, "amountIn cann't be 0");
         require(_tokenIn == token0 || _tokenIn == token1, "tokenIn is not right");
@@ -84,9 +95,9 @@ contract AmmSwap {
         reserve1 = _reserve1;
     }
 
-    function getReservesBalances() external view returns (uint256 snx, uint256 akro) {
-        snx = token0.balanceOf(address(this));
-        akro = token1.balanceOf(address(this));
+    function getReservesBalances() external view returns (uint256 reserve0, uint256 reserve1) {
+        reserve0 = token0.balanceOf(address(this));
+        reserve1 = token1.balanceOf(address(this));
     }
 
 }
